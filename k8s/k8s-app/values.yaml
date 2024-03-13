@@ -1,0 +1,155 @@
+namespace:
+  name: k8s-go-app
+
+
+replicaCount: 1
+
+
+image:
+  repository: isgogolgo13/go-gokit-enginesvc
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "1.0"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: "k8s-go-app"
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8081
+
+
+#container ports
+ports:
+  - name: http
+    containerPort: 8080
+    protocol: TCP
+    
+
+
+
+ # VPA values
+vpaAutoscaling:
+  enabled: true
+  updatePolicy:
+    updateMode: "Off"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: '*'
+      controlledValues: RequestsAndLimits
+
+
+# HPA values
+hpaAutoscaling:
+  enabled: true
+  minReplicas:
+    app: 1
+  maxReplicas:
+    app: 1
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 70
+  healthApiPath: /health-checker
+
+
+
+
+
+ingress:
+  enabled: true
+  #className: authorization-svc-app-nginx-ingress-class
+  className: nginx
+  name: 
+  labels: {}
+  annotations: {}
+  hosts:
+  - od.services.com
+
+  paths: []
+
+  extraPaths: 
+    - path: /
+      pathType: Prefix
+      backendServiceName: k8s-go-app
+      backendPort: 80
+
+  tls:
+    []
+    # - secretName: go-gokit-enginesvc-tls
+    #   hosts:
+    #     - svc.go-gokit-enginesvc.com
+  https: false
+
+livenessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  httpGet:
+    scheme: HTTP
+    path: /health-check
+    port: 8081
+
+readinessProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 3
+  httpGet:
+    scheme: HTTP
+    path: /health-check
+    port: 8081
+
+
+
+resourceQuota:
+  enabled: true
+  hard:
+    limits.cpu: "80"
+    limits.memory: 80Gi
+    requests.cpu: "64"
+    requests.memory: 40Gi
+    pods: "25"
+    persistentVolumeClaims: "25"
+    requests.storage: 250Gi
+limitRange:
+  limits:
+    - max:
+        cpu: "2"
+        memory: 4Gi
+      default:
+        cpu: "2"
+        memory: 4Gi
+      defaultRequest:
+        cpu: "2"
+        memory: 4Gi
+      type: Container
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 125Mi
+  limits:
+    cpu: 200m
+    memory: 250Mi
+
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

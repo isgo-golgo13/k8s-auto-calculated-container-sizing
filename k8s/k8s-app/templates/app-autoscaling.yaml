@@ -1,0 +1,81 @@
+
+{{- if .Values.vpaAutoscaling.enabled }}
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: "{{ include "k8s-go-app.fullname" . }}-vpa"
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "k8s-go-app.labels" . | nindent 4 }}
+spec:
+  targetRef: 
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: {{ include "k8s-go-app.fullname" . }}
+  updatePolicy:
+    updateMode: {{ .Values.vpaAutoscaling.updatePolicy.updateMode | squote }}
+  resourcePolicy:
+    {{- with .Values.vpaAutoscaling.resourcePolicy -}}
+        {{- toYaml . | nindent 4 }}
+    {{- end }}
+      controlledResources: ["cpu", "memory"]
+{{- end }}
+
+---
+
+{{- if .Values.hpaAutoscaling.enabled }}
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: "{{ include "k8s-go-app.fullname" . }}-hpa"
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "k8s-go-app.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "k8s-go-app.fullname" . }}
+  minReplicas: {{ .Values.hpaAutoscaling.minReplicas.app }}
+  maxReplicas: {{ .Values.hpaAutoscaling.maxReplicas.app }}
+  metrics:
+    {{- if .Values.hpaAutoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        targetAverageUtilization: {{ .Values.hpaAutoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.hpaAutoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: {{ .Values.hpaAutoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+{{- end }}
+
+---
+
+{{- if .Values.resourceQuota.enabled }}
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: "{{ include "k8s-go-app.fullname" . }}-limit-range"
+  namespace: {{ .Values.namespace.name }}
+spec:
+  limits:
+    {{ .Values.limitRange.limits | toYaml | indent 4 | trim }}
+{{- end }}
+
+---
+
+{{- if .Values.resourceQuota.enabled }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: "{{ include "k8s-go-app.fullname" . }}-resource-quota"
+  namespace: {{ .Values.namespace.name }}
+spec:
+  hard:
+    {{ .Values.resourceQuota.hard | toYaml | indent 4 | trim }}
+{{- end }}
+

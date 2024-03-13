@@ -1,0 +1,157 @@
+{{/* App deployment, service, ingress code */}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "k8s-go-app.fullname" . }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "k8s-go-app.labels" . | nindent 4 }}
+spec:
+{{- if not .Values.hpaAutoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "k8s-go-app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "k8s-go-app.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "k8s-go-app.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            {{ .Values.ports | toYaml | indent 12 | trim }}
+          livenessProbe:
+            {{ .Values.livenessProbe | toYaml | indent 12 | trim }}
+          readinessProbe:
+            {{ .Values.readinessProbe | toYaml | indent 12 | trim }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "k8s-go-app.fullname" . }}
+  labels:
+    {{- include "k8s-go-app.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "k8s-go-app.selectorLabels" . | nindent 4 }}
+
+---
+
+{{- if .Values.ingress.enabled -}}
+{{- $paths := .Values.ingress.paths -}}
+{{- $extraPaths := .Values.ingress.extraPaths -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.ingress.name }}
+  namespace: {{ .Values.namespace.name }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if .Values.ingress.labels }}
+  labels:
+  {{- range $key, $value := .Values.ingress.labels }}
+    {{ $key }}: {{ $value | quote }}
+  {{- end }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }} 
+{{ else }}
+  ingressClassName: "{{ include "k8s-go-app.fullname" . }}-nginx-ingress-class"
+{{- end }}
+  rules:
+  {{- if .Values.ingress.hosts }}
+  {{- range $host := .Values.ingress.hosts }}
+    - host: {{ $host }}
+      http:
+        paths:
+  {{- range $p := $paths }}
+          - path: {{ $p.path }}
+            pathType: {{ $p.pathType }}
+            backend:
+              service:
+                name: {{ $p.backendServiceName }}
+                port: 
+                  number: {{ $p.backendPort }}
+  {{- end -}}
+  {{- range $p := $extraPaths }}
+          - path: {{ $p.path }}
+            pathType: {{ $p.pathType }}
+            backend:
+              service:
+                name: {{ $p.backendServiceName }}
+                port:
+                  number: {{ $p.backendPort }}
+  {{- end -}}
+  {{- end -}}
+  {{- else }}
+    - http:
+        paths:
+  {{- range $p := $paths }}
+          - path: {{ $p.path }}
+            pathType: {{ $p.pathType }}
+            backend:
+              service:
+                name: {{ $p.backendServiceName }}
+                port: 
+                  number: {{ $p.backendPort }}
+  {{- end -}}
+  {{- range $p := $extraPaths }}
+          - path: {{ $p.path }}
+            pathType: {{ $p.pathType }}
+            backend:
+              service:
+                name: {{ $p.backendServiceName }}
+                port:
+                  number: {{ $p.backendPort }}
+  {{- end -}}
+  {{- end -}}
+  {{- if .Values.ingress.tls }}
+  tls:
+  {{ toYaml .Values.ingress.tls | nindent 4 }}
+    {{- end -}}
+  {{- end -}}
+
+
