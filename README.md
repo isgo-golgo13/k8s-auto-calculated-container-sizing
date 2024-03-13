@@ -14,6 +14,33 @@ To reserve the correct configuration sizing of K8s resources, a required step is
 - The K8s Cluster (any of standard K8s clusters GKE, AKS, ...) requires metrics-server installed and active.
 The metrics-server will collect K8s resource use statistics (cpu, memory, user-defined metrics) to give the Vertical Pod Autoscaler (VPA) the info it requires to actively escalate your K8s resources to vertically scale. 
 
+
+### Installing the VPA
+
+The following Helm Chart Repository refers to the VPA Helm Operator. 
+
+See `https://artifacthub.io/packages/helm/fairwinds-stable/vpa`
+
+The VPA from `Fairwinds` will work across **ANY** Kubernetes cluster. The only prerequisite is the `metrics-server` on the Kubernetes Nodes and to qualify this using a `kubectl top pods` or `kubectl top nodes` at the shell.
+
+The VPA Helm Operator can get installed in several ways.
+
+- Install at the point the K8s Cluster is provisioned using `Terraform` and the `Terraform Helm Provider` using a resource `helm_release` as a Terraform child module. This `helm_release` Terraform module needs to use a Terraform 1.5 module `depends_on = []` to guarantee the Kubernetes Cluster context exists first.
+
+- Install at the point AFTER the K8s Cluster is provisioned using `Terraform` and the `Terraform Helm Provider` using a resource `helm_release` as a Terraform child module. The difference in this way, is that the Terraform child module for the VPA is an "add-on" among a range of Kubernetes add-ons. The Terraform child modules are added-on or "cherry-picked" into the Kubernetes Clusters on-demand and not pre-loaded as in approach #1. This child module for VPA using the add-on pattern is triggered as a secondary stage using a CI/CD pipeline or a flag to turn on and triggered as a GitOps push to Git and a Terraform FluxCD Controller issuing the Terraform `plan` and `apply` workflows.
+
+- Install at the point the K8s Cluster is provisioned or at the point AFTER the K8s Cluster is provisioned using a GitOps for FluxCD or for ArgoCD pattern. For ArgoCD an `Application` CR is added to the `App of Apps` Git repository folder structure or using ArgoCD `ApplicationSet` with the Helm Repository URL of the VPA, `https://artifacthub.io/packages/helm/fairwinds-stable/vpa`, referenced, any changes upstream at this repository are automatically applied and reconciled to the K8s Clusters referencing this Helm Chart. 
+
+
+
+```shell
+helm repo add fairwinds-stable https://charts.fairwinds.com/stable
+helm install vpa fairwinds-stable/vpa --namespace vpa --create-namespace
+
+```
+
+
+
 ### Understanding the Pod QoS Offerings
 
 
