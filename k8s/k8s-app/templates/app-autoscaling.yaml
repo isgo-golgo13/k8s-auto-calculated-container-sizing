@@ -24,7 +24,7 @@ spec:
 ---
 
 {{- if .Values.hpaAutoscaling.enabled }}
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: "{{ include "k8s-go-app.fullname" . }}-hpa"
